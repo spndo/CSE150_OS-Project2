@@ -355,10 +355,10 @@ public class UserProcess {
         String fileName = readVirtualMemoryString(address, 256);
 
         if (fileName != null) {
-            OpenFile file = StubFileSystem.open(fileName, true);
+            OpenFile file = StubFileSystem.StubOpenFile(fileName, true);
 
             if (file != null) {
-                for (int i = 0; i < fileTable.length(); i++) {
+                for (int i = 0; i < fileTable.length; i++) {
                     if (fileTable[i] == null) {
                         fileTable[i] = file;
                         return i;
@@ -374,10 +374,10 @@ public class UserProcess {
         String fileName = readVirtualMemoryString(address, 256);
 
         if (fileName != null) {
-            OpenFile file = StubFileSystem.open(fileName, false);
+            OpenFile file = StubFileSystem.StubOpenFile(fileName, false);
 
             if (file != null) {
-                for (int i = 0; i < fileTable.length(); i++) {
+                for (int i = 0; i < fileTable.length; i++) {
                     if (fileTable[i] == null) {
                         fileTable[i] = file;
                         return i;
@@ -436,7 +436,7 @@ public class UserProcess {
         // find the open file
         OpenFile file = fileTable[fileDescriptor];
 
-        if (fileName == null) {
+        if (file == null) {
             return -1;
         }
         file.close();
@@ -449,7 +449,7 @@ public class UserProcess {
         String fileName = readVirtualMemoryString(address, 256);
 
         if (fileName != null) {
-            OpenFile file = Machine.StubFileSystem.Open(fileName, false);
+            OpenFile file = StubFileSystem.stubOpenFile(fileName, false);
             if (file != null) {
                 file.close();
                 return 0;

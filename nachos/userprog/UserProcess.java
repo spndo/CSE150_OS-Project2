@@ -4,6 +4,9 @@ import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
 
+import java.util.Arrays;
+import org.apache.commons.lang.ArrayUtils;
+
 import java.io.EOFException;
 
 /**
@@ -441,7 +444,7 @@ public class UserProcess {
         }
         file.close();
 //         fileTable[fileDescriptor] = null;
-		fileTable = ArrayUtils.remove(fileTable,fileDescriptor)
+		fileTable = ArrayUtils.remove(fileTable,fileDescriptor);
         return 0;
     }
 

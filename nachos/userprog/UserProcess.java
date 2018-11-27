@@ -355,7 +355,7 @@ public class UserProcess {
         String fileName = readVirtualMemoryString(address, 256);
 
         if (fileName != null) {
-            OpenFile file = StubFileSystem.StubOpenFile(fileName, true);
+            OpenFile file = ThreadedKernel.fileSystem.open(fileName, true);
 
             if (file != null) {
                 for (int i = 0; i < fileTable.length; i++) {
@@ -374,7 +374,7 @@ public class UserProcess {
         String fileName = readVirtualMemoryString(address, 256);
 
         if (fileName != null) {
-            OpenFile file = StubFileSystem.StubOpenFile(fileName, false);
+            OpenFile file = ThreadedKernel.fileSystem.open(fileName, false);
 
             if (file != null) {
                 for (int i = 0; i < fileTable.length; i++) {
@@ -449,7 +449,7 @@ public class UserProcess {
         String fileName = readVirtualMemoryString(address, 256);
 
         if (fileName != null) {
-            OpenFile file = StubFileSystem.stubOpenFile(fileName, false);
+            OpenFile file = ThreadedKernel.fileSystem.open(fileName, false);
             if (file != null) {
                 file.close();
                 return 0;

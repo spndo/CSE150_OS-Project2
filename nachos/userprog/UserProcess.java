@@ -443,8 +443,8 @@ public class UserProcess {
             return -1;
         }
         file.close();
-//         fileTable[fileDescriptor] = null;
-		fileTable = ArrayUtils.remove(fileTable,fileDescriptor);
+        // fileTable[fileDescriptor] = null;
+	// fileTable = ArrayUtils.remove(fileTable,fileDescriptor);
         return 0;
     }
 

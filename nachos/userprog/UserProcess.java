@@ -461,6 +461,12 @@ public class UserProcess {
         }
         return -1;
     }
+	
+    private int handleExec(int file, int argc, int argv[]){}
+
+    private int handleJoin(int processID, int status){}
+
+    private int handleExit(int status){}
 
     private static final int
         syscallHalt = 0,
@@ -524,6 +530,15 @@ public class UserProcess {
 
     case syscallUnlink:
         return handleUnlink(a0);
+
+    case syscallExec:
+        return handleExec(a0, a1, a2);
+
+    case syscallJoin:
+        return handleJoin(a0, a1);
+
+    case syscallExit:
+        return handleExit(a0);
 
 	default:
 	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);

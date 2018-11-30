@@ -362,12 +362,12 @@ public class UserProcess {
         pageTable = new TranslationEntry[numPages];
         
         for (int i=0; i<numPages; i++) {
-        	int physPage = UserKernel.allocatePage();
+        	int physPage = UserKernel.addAvailablePage();
         	if (physPage < 0) {
         		Lib.debug(dbgProcess, "\tunable to allocate pages; tried " + numPages + ", did " + i );
         		for (int j=0; j<i; j++) {
         			if (pageTable[j].valid) {
-        				UserKernel.deallocatePage(pageTable[j].ppn);
+        				UserKernel.removeAvailablePage(pageTable[j].ppn);
         				pageTable[j].valid = false;
         			}
         		}
@@ -407,7 +407,7 @@ public class UserProcess {
     protected void unloadSections() {
     	for (int i=0; i<pageTable.length; i++) {
     		if (pageTable[i].valid) {
-    			UserKernel.deallocatePage(pageTable[i].ppn);
+    			UserKernel.removeAvailablePage(pageTable[i].ppn);
     			pageTable[i].valid = false;
     		}
     	}

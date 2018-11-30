@@ -443,7 +443,7 @@ public class UserProcess {
             return -1;
         }
         file.close();
-        // fileTable[fileDescriptor] = null;
+        fileTable[fileDescriptor] = null;
 	// fileTable = ArrayUtils.remove(fileTable,fileDescriptor);
         return 0;
     }
@@ -452,21 +452,31 @@ public class UserProcess {
         // get the name of file from address
         String fileName = readVirtualMemoryString(address, 256);
 
-        if (fileName != null) {
-            OpenFile file = ThreadedKernel.fileSystem.open(fileName, false);
-            if (file != null) {
-                file.close();
-                return 0;
-            }
-        }
-        return -1;
+        // if (fileName != null) {
+//             OpenFile file = ThreadedKernel.fileSystem.open(fileName, false);
+//             if (file != null) {
+//                 file.close();
+//                 return 0;
+//             }
+//         }
+//         return -1;
+		for (int i = 0; i < fileTable.length; i++){
+			OpenFile file = fileTable[i];
+			if(file != null && fileName == file.getName()){
+				fileTable[i] = null;
+			}
+			
+		}
+		if (ThreadedKernel.fileSystem.remove (fileName))
+			return 0;
+		return -1;
     }
 	
-    private int handleExec(int file, int argc, int argv[]){}
-
-    private int handleJoin(int processID, int status){}
-
-    private int handleExit(int status){}
+    // private int handleExec(int file, int argc, int argv[]){}
+// 
+//     private int handleJoin(int processID, int status){}
+// 
+//     private int handleExit(int status){}
 
     private static final int
         syscallHalt = 0,
@@ -531,14 +541,14 @@ public class UserProcess {
     case syscallUnlink:
         return handleUnlink(a0);
 
-    case syscallExec:
-        return handleExec(a0, a1, a2);
-
-    case syscallJoin:
-        return handleJoin(a0, a1);
-
-    case syscallExit:
-        return handleExit(a0);
+    // case syscallExec:
+//         return handleExec(a0, a1, a2);
+// 
+//     case syscallJoin:
+//         return handleJoin(a0, a1);
+// 
+//     case syscallExit:
+//         return handleExit(a0);
 
 	default:
 	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);

@@ -35,6 +35,8 @@ public class UserProcess {
     fileTable[1] = UserKernel.console.openForWriting();
     }
 
+    this.PID = UserKernel.processID++;
+
     
     /**
      * Allocate and return a new process of the correct class. The class name
@@ -472,10 +474,39 @@ public class UserProcess {
 		return -1;
     }
 	
-    // private int handleExec(int file, int argc, int argv[]){}
-// 
-//     private int handleJoin(int processID, int status){}
-// 
+    private int handleExec(int file, int argc, int argv[]){
+        fileName = readVirtualMemoryString(file, 256);
+
+        if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
+            String[] arg = new String[argc];
+            byte[] buffer = new byte[4];
+
+            for (int i = 0; i < argc; i++) {
+                if (readVirtualMemory(argv[i], buffer) == 4) {
+                    arg[i] = readVirtualMemoryString(Lib.bytesToInt(buffer, 0), 256);
+                    if (arg[i] != null) {
+                        UserProcess child = newUserProcess();
+                        childrenTable.put(child.PID, child);
+                        if (child.execute(fileName, arg)) {
+                            return child.PID;
+                        }
+                    }
+                }
+            }
+            
+        }
+        return -1;
+    }
+
+    private int handleJoin(int processID, int status){
+        if (childrenTable.containsKey(processID)) {
+            UserProcess child = childrenTable.get(processID);
+            child.statusLock.acquire();
+            Integer childStatus = child.exitStatus;
+        }
+        return -1;
+    }   
+
 //     private int handleExit(int status){}
 
     private static final int
@@ -605,4 +636,5 @@ public class UserProcess {
     private static final char dbgProcess = 'a';
 
     private OpenFile[] fileTable = new OpenFile[16];
+    protected Hashtable<Integer, UserProcess> childrenTable = new Hashtable<Integer, UserProcess>(); 
 }

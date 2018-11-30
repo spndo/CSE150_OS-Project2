@@ -17,6 +17,8 @@ public class UserKernel extends ThreadedKernel {
 	
 	
 	public static void initializePages() {
+		usablePages = new LinkedList <Integer>();
+		pagesUsed = new ArrayList <Boolean>();
 		for (int i = 0; i < Machine.processor().getNumPhysPages(); i++) {
 			usablePages.add(i);
 			pagesUsed.add(false);

@@ -417,7 +417,7 @@ public class UserProcess {
             return -1;
         }
         // count bytes into buffer
-        byte buff[] = new byte[count];
+        byte[] buff = new byte[count];
         
         // read data from buffer to buff
         int w = readVirtualMemory(buffer, buff, 0, count);

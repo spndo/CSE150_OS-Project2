@@ -222,39 +222,45 @@ public class UserProcess {
      *			virtual memory.
      * @return	the number of bytes successfully transferred.
      */
-    public int writeVirtualMemory(int vaddr, byte[] data, int offset,
-                                  int length) {
-        Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+    public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
+        //given line of code
+    	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
-        byte[] memory = Machine.processor().getMemory();
+        byte[] memory = Machine.processor().getMemory(); //@param data
         
         int transferred = 0;
+        int bitVal = 1024;
+        
         while (length > 0 && offset < data.length) {
-        	int addrOffset = vaddr % 1024;
-        	int virtualPage = vaddr / 1024;
+        	int addressOffset = vaddr % bitVal;
+        	int virtualPageNum = vaddr / bitVal;
         	
-        	if (virtualPage >= pageTable.length || virtualPage < 0) {
+        	if (virtualPageNum < 0 || virtualPage >= pageTable.length) {
+        		break;
+        	} //check if virtual page number is valid before creating a translation entry
+        	
+        	TranslationEntry pageTableEntry = pageTable[virtualPageNum];
+        	
+        	if (pageTableEntry.readOnly || !pageTableEntry.valid) {
         		break;
         	}
+        	pageTableEntry.dirty = true;
+        	pageTableEntry.used = true;
         	
-        	TranslationEntry pte = pageTable[virtualPage];
-        	if (!pte.valid || pte.readOnly) {
-        		break;
-        	}
-        	pte.used = true;
-        	pte.dirty = true;
+        	int physPageNum = pageTableEntry.ppn;
+        	int paddr = addressOffset + (physPageNum * bitVal); // + addressOffset; //paddr (physical address)
         	
-        	int physPage = pte.ppn;
-        	int physAddr = physPage * 1024 + addrOffset;
+        	int transferLength = Math.min(data.length-offset, Math.min(length, bitVal - addressOffset));
         	
-        	int transferLength = Math.min(data.length-offset, Math.min(length, 1024-addrOffset));
-        	System.arraycopy(data, offset, memory, physAddr, transferLength);
-        	vaddr += transferLength;
-        	offset += transferLength;
-        	length -= transferLength;
-        	transferred += transferLength;
+        	System.arraycopy(data, offset, memory, paddr, transferLength);
+        	
+        	vaddr += transferLength; //@param vaddr (virtual address)
+        	offset += transferLength; //@param offset
+        	length -= transferLength; //@param length
+        	transferred += transferLength; //@return number of bytes successfully transferred
         }
         
+        //return the number of bytes transferred and will always return the val even if transferred = 0
         return transferred;
     }
 

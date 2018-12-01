@@ -235,7 +235,7 @@ public class UserProcess {
         	int addressOffset = vaddr % bitVal;
         	int virtualPageNum = vaddr / bitVal;
         	
-        	if (virtualPageNum < 0 || virtualPage >= pageTable.length) {
+        	if (virtualPageNum < 0 || virtualPageNum >= pageTable.length) {
         		break;
         	} //check if virtual page number is valid before creating a translation entry
         	

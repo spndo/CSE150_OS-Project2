@@ -367,21 +367,21 @@ public class UserProcess {
         }
         pageTable = new TranslationEntry[numPages];
         
-//        for (int i=0; i<numPages; i++) {
-//        	int physPage = UserKernel.addAvailablePage();
-//        	if (physPage < 0) {
-//        		Lib.debug(dbgProcess, "\tunable to allocate pages; tried " + numPages + ", did " + i );
-//        		for (int j=0; j<i; j++) {
-//        			if (pageTable[j].valid) {
-//        				UserKernel.removeAvailablePage(pageTable[j].ppn);
-//        				pageTable[j].valid = false;
-//        			}
-//        		}
-//        		coff.close();
-//        		return false;
-//        	}
-//        	pageTable[i] = new TranslationEntry(i, physPage, true, false, false, false);
-//        }
+        for (int i=0; i<numPages; i++) {
+        	int physPage = UserKernel.addAvailablePage();
+        	if (physPage < 0) {
+        		//Lib.debug(dbgProcess, "\tunable to allocate pages; tried " + numPages + ", did " + i );
+        		for (int j=0; j<i; j++) {
+        			if (pageTable[j].valid) {
+        				UserKernel.removeAvailablePage(pageTable[j].ppn);
+        				pageTable[j].valid = false;
+        			}
+        		}
+        		coff.close();
+        		return false;
+        	}
+        	pageTable[i] = new TranslationEntry(i, physPage, true, false, false, false);
+        }
         
         // load sections
         for (int s=0; s<coff.getNumSections(); s++) {

@@ -395,8 +395,8 @@ public class UserProcess {
                 int vpn = section.getFirstVPN()+i;
 
                 // for now, just assume virtual addresses=physical addresses
-                int ppn = pageTable[vpn].ppn;
-                section.loadPage(i, ppn);
+                
+                section.loadPage(i, pageTable[vpn].ppn);
                 if (section.isReadOnly()) {
                 	pageTable[vpn].readOnly = true;
                 }

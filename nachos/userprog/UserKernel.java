@@ -3,11 +3,60 @@ package nachos.userprog;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
+//import nachos.userprog.UserProcess.childProcess;
 
+import java.util.*;
 /**
  * A kernel that can support multiple user processes.
  */
 public class UserKernel extends ThreadedKernel {
+	
+	static {
+		initializePages();
+	}
+	
+	
+	public static void initializePages() {
+		usablePages = new LinkedList <Integer>();
+		pagesUsed = new ArrayList <Boolean>();
+		for (int i = 0; i < Machine.processor().getNumPhysPages(); i++) {
+			usablePages.add(i);
+			pagesUsed.add(false);
+		}
+	}
+	
+	
+	public static int addAvailablePage() {
+		Machine.interrupt().disable();
+		
+		if(usablePages.size() < 1) {
+			Machine.interrupt().enable();
+			return -1;
+		}
+		else {
+			int page = usablePages.pop();
+			if(pagesUsed.get(page) == false) {
+				pagesUsed.set(page,  true);
+				Machine.interrupt().enable();
+				return page;
+			}
+			else {
+				Machine.interrupt().enable();
+				return -1;
+			}
+		}
+	}
+	
+	
+	public static void removeAvailablePage(int page) {
+		Machine.interrupt().disable();
+		if(pagesUsed.get(page) == true) {
+			pagesUsed.set(page,  false);
+			usablePages.push(page);
+		}
+		Machine.interrupt().enable();
+	}
+	
     /**
      * Allocate a new user kernel.
      */
@@ -112,4 +161,6 @@ public class UserKernel extends ThreadedKernel {
 
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
+    public static LinkedList<Integer> usablePages;
+    public static ArrayList<Boolean> pagesUsed;
 }

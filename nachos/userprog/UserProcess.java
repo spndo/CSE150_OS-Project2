@@ -148,19 +148,37 @@ public class UserProcess {
      */
     public int readVirtualMemory(int vaddr, byte[] data, int offset,
 				 int length) {
-	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
-	byte[] memory = Machine.processor().getMemory();
-	
-	// for now, just assume that virtual addresses equal physical addresses
-	if (vaddr < 0 || vaddr >= memory.length)
-	    return 0;
-
-	int amount = Math.min(length, memory.length-vaddr);
-	System.arraycopy(memory, vaddr, data, offset, amount);
-
-	return amount;
-    }
+        byte[] memory = Machine.processor().getMemory();
+        
+        int transferred = 0;
+        while (length > 0 && offset < data.length) {
+        	int addrOffset = vaddr % 1024;
+        	int virtualPage = vaddr / 1024;
+        	
+        if (virtualPage >= pageTable.length || virtualPage < 0) {
+        	break;
+        }
+        TranslationEntry pte = pageTable[virtualPage];
+        if (!pte.valid) {
+        	break;
+        }
+        pte.used = true;
+        	
+        int physPage = pte.ppn;
+        int physAddr = physPage * 1024 + addrOffset;
+        	
+        int transferLength = Math.min(data.length-offset, Math.min(length, 1024-addrOffset));
+        System.arraycopy(memory, physAddr, data, offset, transferLength);
+        vaddr += transferLength;
+        offset += transferLength;
+        length -= transferLength;
+        transferred += transferLength;
+        }
+        
+        return transferred;    
+        }
 
     /**
      * Transfer all data from the specified array to this process's virtual
@@ -191,19 +209,45 @@ public class UserProcess {
      */
     public int writeVirtualMemory(int vaddr, byte[] data, int offset,
 				  int length) {
-	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+    	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
-	byte[] memory = Machine.processor().getMemory();
-	
-	// for now, just assume that virtual addresses equal physical addresses
-	if (vaddr < 0 || vaddr >= memory.length)
-	    return 0;
-
-	int amount = Math.min(length, memory.length-vaddr);
-	System.arraycopy(data, offset, memory, vaddr, amount);
-
-	return amount;
-    }
+        byte[] memory = Machine.processor().getMemory(); //@param data
+        
+        int transferred = 0;
+        int bitVal = 1024;
+        
+        while (length > 0 && offset < data.length) {
+        	int addressOffset = vaddr % bitVal;
+        	int virtualPageNum = vaddr / bitVal;
+        	
+        if (virtualPageNum < 0 || virtualPageNum >= pageTable.length) {
+        	break;
+        } //check if virtual page number is valid before creating a translation entry
+        	
+        TranslationEntry pageTableEntry = pageTable[virtualPageNum];
+        	
+        if (pageTableEntry.readOnly || !pageTableEntry.valid) {
+        	break;
+        }
+        pageTableEntry.dirty = true;
+        pageTableEntry.used = true;
+        	
+        int physPageNum = pageTableEntry.ppn;
+        int paddr = addressOffset + (physPageNum * bitVal); // + addressOffset; //paddr (physical address)
+        	
+        int transferLength = Math.min(data.length-offset, Math.min(length, bitVal - addressOffset));
+        	
+        System.arraycopy(data, offset, memory, paddr, transferLength);
+        	
+        vaddr += transferLength; //@param vaddr (virtual address)
+        offset += transferLength; //@param offset
+        length -= transferLength; //@param length
+        transferred += transferLength; //@return number of bytes successfully transferred
+        }
+        
+        //return the number of bytes transferred and will always return the val even if transferred = 0
+        return transferred;   
+	}
 
     /**
      * Load the executable with the specified name into this process, and
@@ -302,9 +346,26 @@ public class UserProcess {
      */
     protected boolean loadSections() {
 	if (numPages > Machine.processor().getNumPhysPages()) {
-	    coff.close();
-	    Lib.debug(dbgProcess, "\tinsufficient physical memory");
-	    return false;
+            coff.close();
+            Lib.debug(dbgProcess, "\tinsufficient physical memory");
+            return false;
+        }
+        pageTable = new TranslationEntry[numPages];
+        
+        for (int i=0; i<numPages; i++) {
+        	int physPage = UserKernel.addAvailablePage();
+        	if (physPage < 0) {
+        		//Lib.debug(dbgProcess, "\tunable to allocate pages; tried " + numPages + ", did " + i );
+        		for (int j=0; j<i; j++) {
+        			if (pageTable[j].valid) {
+        				UserKernel.removeAvailablePage(pageTable[j].ppn);
+        				pageTable[j].valid = false;
+        			}
+        		}
+        		coff.close();
+        		return false;
+        	}
+        	pageTable[i] = new TranslationEntry(i, physPage, true, false, false, false);
 	}
 
 	// load sections

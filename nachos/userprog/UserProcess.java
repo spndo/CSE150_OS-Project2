@@ -35,7 +35,9 @@ public class UserProcess {
     fileTable[0] = UserKernel.console.openForReading();
     fileTable[1] = UserKernel.console.openForWriting();
     
-    this.PID = UserKernel.processID++;
+    //this.PID = UserKernel.processID++;
+    
+    PID = processCount++;
     
     statesnow = 1;
     
@@ -511,6 +513,10 @@ public class UserProcess {
             UserProcess child = childrenTable.get(processID);
             // child.lock.acquire();
 //             Integer childStatus = child.exitStatus;
+			if (child == null || child.thread == null)
+				System.out.println("does not exist");
+				
+
 			child.thread.join();
 			
 			//dont allow the child to join again
@@ -655,7 +661,10 @@ public class UserProcess {
     
     protected Lock lock;
     protected Condition cond;
+    private static int processCount=0;
     protected int PID;
+    
+    private UThread thread;
     
     private int statesnow;
     

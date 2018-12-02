@@ -6,6 +6,7 @@ import nachos.userprog.*;
 
 import java.util.Arrays;
 
+import java.util.Hashtable;
 
 import java.io.EOFException;
 
@@ -34,7 +35,9 @@ public class UserProcess {
     fileTable[0] = UserKernel.console.openForReading();
     fileTable[1] = UserKernel.console.openForWriting();
     
-    this.PID = UserKernel.processID++;
+    //this.PID = UserKernel.processID++;
+    
+    PID = processCount++;
     
     statesnow = 1;
     
@@ -482,7 +485,7 @@ public class UserProcess {
     }
 	
     private int handleExec(int file, int argc, int argv[]){
-        fileName = readVirtualMemoryString(file, 256);
+        String fileName = readVirtualMemoryString(file, 256);
 
         if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
             String[] arg = new String[argc];
@@ -510,7 +513,11 @@ public class UserProcess {
             UserProcess child = childrenTable.get(processID);
             // child.lock.acquire();
 //             Integer childStatus = child.exitStatus;
-			child.thrad.join();
+			if (child == null || child.thread == null)
+				System.out.println("does not exist");
+				
+
+			child.thread.join();
 			
 			//dont allow the child to join again
 			childrenTable.remove (processID);
@@ -654,7 +661,10 @@ public class UserProcess {
     
     protected Lock lock;
     protected Condition cond;
+    private static int processCount=0;
     protected int PID;
+    
+    private UThread thread;
     
     private int statesnow;
     

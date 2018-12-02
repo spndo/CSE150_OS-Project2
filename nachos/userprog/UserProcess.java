@@ -4,6 +4,10 @@ import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
 
+import java.util.Arrays;
+
+import java.util.Hashtable;
+
 import java.io.EOFException;
 
 /**
@@ -27,7 +31,20 @@ public class UserProcess {
 	pageTable = new TranslationEntry[numPhysPages];
 	for (int i=0; i<numPhysPages; i++)
 	    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
+
+    fileTable[0] = UserKernel.console.openForReading();
+    fileTable[1] = UserKernel.console.openForWriting();
+    
+    this.PID = UserKernel.processID++;
+    
+    statesnow = 1;
+    
     }
+
+    
+    
+    
+
     
     /**
      * Allocate and return a new process of the correct class. The class name
@@ -346,6 +363,175 @@ public class UserProcess {
 	return 0;
     }
 
+    private int handleCreate(int address) {
+        // get the name of file from address
+        String fileName = readVirtualMemoryString(address, 256);
+
+        if (fileName != null) {
+            OpenFile file = ThreadedKernel.fileSystem.open(fileName, true);
+
+            if (file != null) {
+                for (int i = 0; i < fileTable.length; i++) {
+                    if (fileTable[i] == null) {
+                        fileTable[i] = file;
+                        return i;
+                    }
+                }    
+            }  
+        }
+        return -1;
+    }
+
+    private int handleOpen(int address) {
+        // get the name of file from address 
+        String fileName = readVirtualMemoryString(address, 256);
+
+        if (fileName != null) {
+            OpenFile file = ThreadedKernel.fileSystem.open(fileName, false);
+
+            if (file != null) {
+                for (int i = 0; i < fileTable.length; i++) {
+                    if (fileTable[i] == null) {
+                        fileTable[i] = file;
+                        return i;
+                    }
+                }
+            }
+        }
+        return -1;
+    }
+
+    private int handleRead(int fileDescriptor, int buffer, int count) {
+        // find the open file
+        OpenFile file = fileTable[fileDescriptor];
+        if (file == null) {
+            return -1;
+        }
+
+        // count bytes into buffer
+        byte buff[] = new byte[count];
+        int numberOfBytesRead = file.read(buff, 0, count);
+        if (numberOfBytesRead == -1) {
+            System.out.println("Cannot Read");
+            return -1;
+        }
+        // store what has been read into virtual memory
+        int num = writeVirtualMemory(buffer, buff, 0, numberOfBytesRead);
+        return num;
+    }
+
+    private int handleWrite(int fileDescriptor, int buffer, int count) {
+        // find the open file
+        OpenFile file = fileTable[fileDescriptor];
+        if (file == null) {
+            return -1;
+        }
+        // count bytes into buffer
+        byte[] buff = new byte[count];
+        
+        // read data from buffer to buff
+        int w = readVirtualMemory(buffer, buff, 0, count);
+
+        // write the bytes from buff
+        int c = file.write(buff, 0, w);
+
+        if (c == -1 || w == -1) {
+            System.out.println("Cannot Written");
+        }
+
+        if (c < count) {
+            return -1;
+        }
+        return c;
+    }
+
+    private int handleClose(int fileDescriptor) {
+        // find the open file
+        OpenFile file = fileTable[fileDescriptor];
+
+        if (file == null) {
+            return -1;
+        }
+        file.close();
+        fileTable[fileDescriptor] = null;
+	// fileTable = ArrayUtils.remove(fileTable,fileDescriptor);
+        return 0;
+    }
+
+    private int handleUnlink(int address) {
+        // get the name of file from address
+        String fileName = readVirtualMemoryString(address, 256);
+
+        // if (fileName != null) {
+//             OpenFile file = ThreadedKernel.fileSystem.open(fileName, false);
+//             if (file != null) {
+//                 file.close();
+//                 return 0;
+//             }
+//         }
+//         return -1;
+		for (int i = 0; i < fileTable.length; i++){
+			OpenFile file = fileTable[i];
+			if(file != null && fileName == file.getName()){
+				fileTable[i] = null;
+			}
+			
+		}
+		if (ThreadedKernel.fileSystem.remove (fileName))
+			return 0;
+		return -1;
+    }
+	
+    private int handleExec(int file, int argc, int argv[]){
+        String fileName = readVirtualMemoryString(file, 256);
+
+        if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
+            String[] arg = new String[argc];
+            byte[] buffer = new byte[4];
+
+            for (int i = 0; i < argc; i++) {
+                if (readVirtualMemory(argv[i], buffer) == 4) {
+                    arg[i] = readVirtualMemoryString(Lib.bytesToInt(buffer, 0), 256);
+                    if (arg[i] != null) {
+                        UserProcess child = new UserProcess();
+                        childrenTable.put(child.PID, child);
+                        if (child.execute(fileName, arg)) {
+                            return child.PID;
+                        }
+                    }
+                }
+            }
+            
+        }
+        return -1;
+    }
+
+    private int handleJoin(int processID, int status){
+        if (childrenTable.containsKey(processID)) {
+            UserProcess child = childrenTable.get(processID);
+            // child.lock.acquire();
+//             Integer childStatus = child.exitStatus;
+			child.thread.join();
+			
+			//dont allow the child to join again
+			childrenTable.remove (processID);
+			
+// 			byte s = new byte[4];
+// 			
+// 			s = Lib.bytesFromInt(child.statesnow);
+			
+			int trans = writeVirtualMemory(status, Lib.bytesFromInt(child.statesnow));
+			
+			if (trans == 4)
+				return 1;
+			else 
+				return 0;
+			
+        }
+        return -1;
+    }   
+
+//     private int handleExit(int status){}
 
     private static final int
         syscallHalt = 0,
@@ -392,6 +578,32 @@ public class UserProcess {
 	case syscallHalt:
 	    return handleHalt();
 
+    case syscallCreate:
+        return handleCreate(a0);
+
+    case syscallOpen:
+        return handleOpen(a0);
+
+    case syscallRead:
+        return handleRead(a0, a1, a2);
+
+    case syscallWrite:
+        return handleWrite(a0, a1, a2);
+
+    case syscallClose:
+        return handleClose(a0);
+
+    case syscallUnlink:
+        return handleUnlink(a0);
+
+    // case syscallExec:
+//         return handleExec(a0, a1, a2);
+// 
+//     case syscallJoin:
+//         return handleJoin(a0, a1);
+// 
+//     case syscallExit:
+//         return handleExit(a0);
 
 	default:
 	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
@@ -441,9 +653,18 @@ public class UserProcess {
     /** The number of pages in the program's stack. */
     protected final int stackPages = 8;
     
+    protected Lock lock;
+    protected Condition cond;
+    protected int PID;
+    
+    private int statesnow;
+    
     private int initialPC, initialSP;
     private int argc, argv;
 	
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
+
+    private OpenFile[] fileTable = new OpenFile[16];
+    protected Hashtable<Integer, UserProcess> childrenTable = new Hashtable<Integer, UserProcess>(); 
 }

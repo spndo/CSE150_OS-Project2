@@ -33,9 +33,16 @@ public class UserProcess {
 
     fileTable[0] = UserKernel.console.openForReading();
     fileTable[1] = UserKernel.console.openForWriting();
+    
+    this.PID = UserKernel.processID++;
+    
+    statesnow = 1;
+    
     }
 
-    this.PID = UserKernel.processID++;
+    
+    
+    
 
     
     /**
@@ -485,7 +492,7 @@ public class UserProcess {
                 if (readVirtualMemory(argv[i], buffer) == 4) {
                     arg[i] = readVirtualMemoryString(Lib.bytesToInt(buffer, 0), 256);
                     if (arg[i] != null) {
-                        UserProcess child = newUserProcess();
+                        UserProcess child = new UserProcess();
                         childrenTable.put(child.PID, child);
                         if (child.execute(fileName, arg)) {
                             return child.PID;
@@ -501,8 +508,24 @@ public class UserProcess {
     private int handleJoin(int processID, int status){
         if (childrenTable.containsKey(processID)) {
             UserProcess child = childrenTable.get(processID);
-            child.statusLock.acquire();
-            Integer childStatus = child.exitStatus;
+            // child.lock.acquire();
+//             Integer childStatus = child.exitStatus;
+			child.thrad.join();
+			
+			//dont allow the child to join again
+			childrenTable.remove (processID);
+			
+// 			byte s = new byte[4];
+// 			
+// 			s = Lib.bytesFromInt(child.statesnow);
+			
+			int trans = writeVirtualMemory(status, Lib.bytesFromInt(child.statesnow));
+			
+			if (trans == 4)
+				return 1;
+			else 
+				return 0;
+			
         }
         return -1;
     }   
@@ -628,6 +651,12 @@ public class UserProcess {
 
     /** The number of pages in the program's stack. */
     protected final int stackPages = 8;
+    
+    protected Lock lock;
+    protected Condition cond;
+    protected int PID;
+    
+    private int statesnow;
     
     private int initialPC, initialSP;
     private int argc, argv;

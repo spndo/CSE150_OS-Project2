@@ -65,7 +65,9 @@ public class UserProcess {
 		if (!load(name, args))
 			return false;
 
-		new UThread(this).setName(name).fork();
+		//new UThread(this).setName(name).fork();
+		thread = new UThread(this);
+		thread.setName(name).fork();
 
 		return true;
 	}
@@ -145,18 +147,36 @@ public class UserProcess {
 	 * @return the number of bytes successfully transferred.
 	 */
 	public int readVirtualMemory(int vaddr, byte[] data, int offset, int length) {
-		Lib.assertTrue(offset >= 0 && length >= 0 && offset + length <= data.length);
+		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
-		byte[] memory = Machine.processor().getMemory();
-
-		// for now, just assume that virtual addresses equal physical addresses
-		if (vaddr < 0 || vaddr >= memory.length)
-			return 0;
-
-		int amount = Math.min(length, memory.length - vaddr);
-		System.arraycopy(memory, vaddr, data, offset, amount);
-
-		return amount;
+        byte[] memory = Machine.processor().getMemory();
+        
+        int transferred = 0;
+        while (length > 0 && offset < data.length) {
+        	int addrOffset = vaddr % 1024;
+        	int virtualPage = vaddr / 1024;
+        	
+        	if (virtualPage >= pageTable.length || virtualPage < 0) {
+        		break;
+        	}
+        	TranslationEntry pte = pageTable[virtualPage];
+        	if (!pte.valid) {
+        		break;
+        	}
+        	pte.used = true;
+        	
+        	int physPage = pte.ppn;
+        	int physAddr = physPage * 1024 + addrOffset;
+        	
+        	int transferLength = Math.min(data.length-offset, Math.min(length, 1024-addrOffset));
+        	System.arraycopy(memory, physAddr, data, offset, transferLength);
+        	vaddr += transferLength;
+        	offset += transferLength;
+        	length -= transferLength;
+        	transferred += transferLength;
+        }
+        
+        return transferred;
 	}
 
 	/**
@@ -190,18 +210,44 @@ public class UserProcess {
 	 * @return the number of bytes successfully transferred.
 	 */
 	public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
-		Lib.assertTrue(offset >= 0 && length >= 0 && offset + length <= data.length);
+		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
-		byte[] memory = Machine.processor().getMemory();
-
-		// for now, just assume that virtual addresses equal physical addresses
-		if (vaddr < 0 || vaddr >= memory.length)
-			return 0;
-
-		int amount = Math.min(length, memory.length - vaddr);
-		System.arraycopy(data, offset, memory, vaddr, amount);
-
-		return amount;
+        byte[] memory = Machine.processor().getMemory(); //@param data
+        
+        int transferred = 0;
+        int bitVal = 1024;
+        
+        while (length > 0 && offset < data.length) {
+        	int addressOffset = vaddr % bitVal;
+        	int virtualPageNum = vaddr / bitVal;
+        	
+        	if (virtualPageNum < 0 || virtualPageNum >= pageTable.length) {
+        		break;
+        	} //check if virtual page number is valid before creating a translation entry
+        	
+        	TranslationEntry pageTableEntry = pageTable[virtualPageNum];
+        	
+        	if (pageTableEntry.readOnly || !pageTableEntry.valid) {
+        		break;
+        	}
+        	pageTableEntry.dirty = true;
+        	pageTableEntry.used = true;
+        	
+        	int physPageNum = pageTableEntry.ppn;
+        	int paddr = addressOffset + (physPageNum * bitVal); // + addressOffset; //paddr (physical address)
+        	
+        	int transferLength = Math.min(data.length-offset, Math.min(length, bitVal - addressOffset));
+        	
+        	System.arraycopy(data, offset, memory, paddr, transferLength);
+        	
+        	vaddr += transferLength; //@param vaddr (virtual address)
+        	offset += transferLength; //@param offset
+        	length -= transferLength; //@param length
+        	transferred += transferLength; //@return number of bytes successfully transferred
+        }
+        
+        //return the number of bytes transferred and will always return the val even if transferred = 0
+        return transferred;
 	}
 
 	/**
@@ -521,12 +567,14 @@ public class UserProcess {
 	}
 
 	private int handleJoin(int processID, int status) {
+		if (processID < 0 || status < 0 )
+    		return -1;
 		if (childrenTable.containsKey(processID)) {
 			UserProcess child = childrenTable.get(processID);
 			// child.lock.acquire();
 			// Integer childStatus = child.exitStatus;
-			if (child == null || child.thread == null)
-				System.out.println("does not exist");
+// 			if (child == null || child.thread == null)
+// 				System.out.println("does not exist");
 
 			child.thread.join();
 
@@ -545,7 +593,8 @@ public class UserProcess {
 				return 0;
 
 		}
-		return -1;
+		else
+			return -1;
 	}
 
 	private void handleExit(int status) {

@@ -346,28 +346,50 @@ public class UserProcess {
 	 * @return <tt>true</tt> if the sections were successfully loaded.
 	 */
 	protected boolean loadSections() {
-		if (numPages > Machine.processor().getNumPhysPages()) {
-			coff.close();
-			Lib.debug(dbgProcess, "\tinsufficient physical memory");
-			return false;
-		}
+		        if (numPages > Machine.processor().getNumPhysPages()) {
+            coff.close();
+            Lib.debug(dbgProcess, "\tinsufficient physical memory");
+            return false;
+        }
+        pageTable = new TranslationEntry[numPages];
+        
+        for (int i=0; i<numPages; i++) {
+        	int physPage = UserKernel.addAvailablePage();
+        	if (physPage < 0) {
+        		//Lib.debug(dbgProcess, "\tunable to allocate pages; tried " + numPages + ", did " + i );
+        		for (int j=0; j<i; j++) {
+        			if (pageTable[j].valid) {
+        				UserKernel.removeAvailablePage(pageTable[j].ppn);
+        				pageTable[j].valid = false;
+        			}
+        		}
+        		coff.close();
+        		return false;
+        	}
+        	pageTable[i] = new TranslationEntry(i, physPage, true, false, false, false);
+        }
+        
+        // load sections
+        for (int s=0; s<coff.getNumSections(); s++) {
+            CoffSection section = coff.getSection(s);
+            
+            Lib.debug(dbgProcess, "\tinitializing " + section.getName()
+                      + " section (" + section.getLength() + " pages)");
 
-		// load sections
-		for (int s = 0; s < coff.getNumSections(); s++) {
-			CoffSection section = coff.getSection(s);
+            for (int i=0; i<section.getLength(); i++) {
+                int vpn = section.getFirstVPN()+i;
 
-			Lib.debug(dbgProcess,
-					"\tinitializing " + section.getName() + " section (" + section.getLength() + " pages)");
-
-			for (int i = 0; i < section.getLength(); i++) {
-				int vpn = section.getFirstVPN() + i;
-
-				// for now, just assume virtual addresses=physical addresses
-				section.loadPage(i, vpn);
-			}
-		}
-
-		return true;
+                // for now, just assume virtual addresses=physical addresses
+                
+                section.loadPage(i, pageTable[vpn].ppn);
+                if (section.isReadOnly()) {
+                	pageTable[vpn].readOnly = true;
+                }
+            }
+        }
+        
+        coff.close();
+        return true;
 	}
 
 	/**
@@ -375,7 +397,7 @@ public class UserProcess {
 	 */
 	protected void unloadSections() {
 		// close
-		coff.close();
+		//coff.close();
 
 		// all numPages
 		for (int i = 0; i < numPages; i++) {
@@ -544,7 +566,7 @@ public class UserProcess {
 
 	private int handleExec(int file, int argc, int argv[]) {
 		String fileName = readVirtualMemoryString(file, 256);
-
+// 
 		if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
 			String[] arg = new String[argc];
 			byte[] buffer = new byte[4];
@@ -552,18 +574,41 @@ public class UserProcess {
 			for (int i = 0; i < argc; i++) {
 				if (readVirtualMemory(argv[i], buffer) == 4) {
 					arg[i] = readVirtualMemoryString(Lib.bytesToInt(buffer, 0), 256);
-					if (arg[i] != null) {
-						UserProcess child = new UserProcess();
-						childrenTable.put(child.PID, child);
-						if (child.execute(fileName, arg)) {
-							return child.PID;
+					if (arg[i] == null) { //arg[i] != null
+							return -1;
 						}
 					}
-				}
+			}
+			UserProcess child = new UserProcess();
+			
+			child.pPID = this.PID;
+			if (child.execute(fileName, arg)) {
+				childrenTable.put(child.PID, child);
+				return child.PID;
+				
 			}
 
 		}
 		return -1;
+		// if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
+// 			String[] arg = new String[argc];
+// 			byte[] buffer = new byte[4];
+// 
+// 			for (int i = 0; i < argc; i++) {
+// 				if (readVirtualMemory(argv[i], buffer) == 4) {
+// 					arg[i] = readVirtualMemoryString(Lib.bytesToInt(buffer, 0), 256);
+// 					if (arg[i] != null) {
+// 						UserProcess child = new UserProcess();
+// 						childrenTable.put(child.PID, child);
+// 						if (child.execute(fileName, arg)) {
+// 							return child.PID;
+// 						}
+// 					}
+// 				}
+// 			}
+// 
+// 		}
+// 		return -1;
 	}
 
 	private int handleJoin(int processID, int status) {
@@ -599,29 +644,57 @@ public class UserProcess {
 
 	private void handleExit(int status) {
 		// should iterate to 16(project specified max) dealloc file descriptors
+		// for (int i = 0; i < fileTable.length; ++i) {
+// 			if (fileTable[i] != null) {
+// 				fileTable[i].close();
+// 			}
+// 		}
+// 
+// 		// iteration of all children, remove pointers
+// 		for (Integer i : childrenTable.keySet()) {
+// 			childrenTable.get(i).pPID = -1;
+// 		}
+// 
+// 		// sets statenow
+// 		this.statesnow = status;
+// 
+// 		// unload pages
+// 		this.unloadSections();
+// 
+// 		// root PID, final to terminate
+// 		if (this.PID == 0) {
+// 			Kernel.kernel.terminate();
+// 		} else {
+// 			KThread.currentThread().finish();
+//		}
+		Lib.debug(dbgProcess, "handleExit()");
+		
 		for (int i = 0; i < fileTable.length; ++i) {
 			if (fileTable[i] != null) {
-				fileTable[i].close();
+				handleClose(i);
 			}
 		}
-
-		// iteration of all children, remove pointers
-		for (Integer i : childrenTable.keySet()) {
+		
+		statesnow = status;
+		
+		if (childrenTable != null && !childrenTable.isEmpty()){
+			for (Integer i : childrenTable.keySet()) {
 			childrenTable.get(i).pPID = -1;
+			}
 		}
+		childrenTable = null;
 
-		// sets statenow
-		this.statesnow = status;
-
-		// unload pages
-		this.unloadSections();
-
-		// root PID, final to terminate
-		if (this.PID == 0) {
+		//release memory
+		unloadSections();
+		
+		if (PID == -1){
+			Lib.debug(dbgProcess, "ROOT terminited!");
 			Kernel.kernel.terminate();
-		} else {
+		}else {
 			KThread.currentThread().finish();
 		}
+		
+
 	}
 
 	private static final int syscallHalt = 0, syscallExit = 1, syscallExec = 2, syscallJoin = 3, syscallCreate = 4,

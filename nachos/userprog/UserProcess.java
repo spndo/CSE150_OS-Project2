@@ -35,7 +35,7 @@ public class UserProcess {
 		fileTable[0] = UserKernel.console.openForReading();
 		fileTable[1] = UserKernel.console.openForWriting();
 		
-	    this.PID = UserKernel.processID++;
+	    //this.PID = UserKernel.processID++;
 	}
 	
 
@@ -328,7 +328,24 @@ public class UserProcess {
 	/**
 	 * Release any resources allocated by <tt>loadSections()</tt>.
 	 */
-	protected void unloadSections() {
+	protected void unloadSections(){
+		
+		//close
+		coff.close();
+		
+		//all numPages
+		for(int i = 0; i < numPages; i++)
+		{
+			
+			if(pageTable[i] != null)
+			{
+				pageTable[i].valid = false;
+				UserKernel.removeAvailablePage(pageTable[i].ppn);
+			}
+		}
+		
+		pageTable = null;
+		
 	}
 
 	/**
@@ -510,18 +527,15 @@ public class UserProcess {
 
 	private int handleJoin(int processID, int status)
 	{
-		if (childrenTable.containsKey(processID)) {
-			UserProcess child = childrenTable.get(processID);
-			child.statusLock.acquire();
-			Integer childStatus = child.exitStatus;
-		}
-		return -1;
+		 
+	        return -1;
+
 	}
 
 	/* My Section Of The Code */
-	private int handleExit(int status)
+	private void handleExit(int status)
 	{
-		//should iterate to 16(project specified max) dealloc
+		//should iterate to 16(project specified max) dealloc file descriptors
 		for (int i = 0; i < fileTable.length; ++i)
 		{
             if (fileTable[i] != null)
@@ -530,13 +544,25 @@ public class UserProcess {
             }
         }
 		
+		//iteration of all children, remove pointers
 		for(Integer i : childrenTable.keySet()) {
-            childrenTable.get(i).parentPID = -1;
+            childrenTable.get(i).pPID = -1;
         }
 		
+		//sets statenow
+		this.statesnow = status;
 		
+		//unload pages 
+		this.unloadSections();
 		
-		
+		 //root PID, final to terminate
+		 if(this.PID == 0) {
+	            Kernel.kernel.terminate();
+	     }
+		 else
+		 {
+			 KThread.currentThread().finish();  
+		 }
 		
 	}
 		
@@ -686,6 +712,12 @@ public class UserProcess {
 	/** The number of pages in the program's stack. */
 	protected final int stackPages = 8;
 
+	protected Lock lock;
+    protected Condition cond;
+	protected int PID;
+	private int statesnow;
+	public int pPID = -1;
+	
 	private int initialPC, initialSP;
 	private int argc, argv;
 

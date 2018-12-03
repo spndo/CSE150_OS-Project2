@@ -92,5 +92,14 @@ public class LotteryScheduler extends PriorityScheduler {
 	return true;
     }
     
+    protected class LotteryQueue extends PriorityQueue{
+    	 LotteryQueue(boolean transferPriority){
+             this.transferPriority = transferPriority;
+         }
+         LotteryQueue(){
+             this.transferPriority = false;
+         }
+         //need to implement ticket transfer system
+    }
     
 }

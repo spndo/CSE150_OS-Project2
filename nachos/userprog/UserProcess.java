@@ -564,7 +564,7 @@ public class UserProcess {
 		return -1;
 	}
 
-	private int handleExec(int file, int argc, int argv[]) {
+	private int handleExec(int file, int argc, int argv) {
 		String fileName = readVirtualMemoryString(file, 256);
 // 
 		if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
@@ -572,7 +572,7 @@ public class UserProcess {
 			byte[] buffer = new byte[4];
 
 			for (int i = 0; i < argc; i++) {
-				if (readVirtualMemory(argv[i], buffer) == 4) {
+				if (readVirtualMemory(argv + i*4, buffer) == 4) {
 					arg[i] = readVirtualMemoryString(Lib.bytesToInt(buffer, 0), 256);
 					if (arg[i] == null) { //arg[i] != null
 							return -1;
@@ -590,12 +590,12 @@ public class UserProcess {
 
 		}
 		return -1;
-		// if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
+// 		if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
 // 			String[] arg = new String[argc];
 // 			byte[] buffer = new byte[4];
 // 
 // 			for (int i = 0; i < argc; i++) {
-// 				if (readVirtualMemory(argv[i], buffer) == 4) {
+// 				if (readVirtualMemory(argv + i*4, buffer) == 4) {
 // 					arg[i] = readVirtualMemoryString(Lib.bytesToInt(buffer, 0), 256);
 // 					if (arg[i] != null) {
 // 						UserProcess child = new UserProcess();
@@ -644,55 +644,55 @@ public class UserProcess {
 
 	private void handleExit(int status) {
 		// should iterate to 16(project specified max) dealloc file descriptors
-		// for (int i = 0; i < fileTable.length; ++i) {
-// 			if (fileTable[i] != null) {
-// 				fileTable[i].close();
-// 			}
-// 		}
-// 
-// 		// iteration of all children, remove pointers
-// 		for (Integer i : childrenTable.keySet()) {
-// 			childrenTable.get(i).pPID = -1;
-// 		}
-// 
-// 		// sets statenow
-// 		this.statesnow = status;
-// 
-// 		// unload pages
-// 		this.unloadSections();
-// 
-// 		// root PID, final to terminate
-// 		if (this.PID == 0) {
-// 			Kernel.kernel.terminate();
-// 		} else {
-// 			KThread.currentThread().finish();
-//		}
-		Lib.debug(dbgProcess, "handleExit()");
-		
 		for (int i = 0; i < fileTable.length; ++i) {
 			if (fileTable[i] != null) {
-				handleClose(i);
+				fileTable[i].close();
 			}
 		}
-		
-		statesnow = status;
-		
-		if (childrenTable != null && !childrenTable.isEmpty()){
-			for (Integer i : childrenTable.keySet()) {
-			childrenTable.get(i).pPID = -1;
-			}
-		}
-		childrenTable = null;
 
-		//release memory
-		unloadSections();
-		
-		if (PID == -1){
-			Lib.debug(dbgProcess, "ROOT terminited!");
-			Kernel.kernel.terminate();
-		}else {
-			KThread.currentThread().finish();
+		// iteration of all children, remove pointers
+		for (Integer i : childrenTable.keySet()) {
+			childrenTable.get(i).pPID = -1;
 		}
+
+		// sets statenow
+		this.statesnow = status;
+
+		// unload pages
+		this.unloadSections();
+
+		// root PID, final to terminate
+		if (this.PID == 0) {
+			Kernel.kernel.terminate();
+		} else {
+			KThread.currentThread().finish();
+	}
+// 		Lib.debug(dbgProcess, "handleExit()");
+// 		
+// 		for (int i = 0; i < fileTable.length; ++i) {
+// 			if (fileTable[i] != null) {
+// 				handleClose(i);
+// 			}
+// 		}
+// 		
+// 		statesnow = status;
+// 		
+// 		if (childrenTable != null && !childrenTable.isEmpty()){
+// 			for (Integer i : childrenTable.keySet()) {
+// 			childrenTable.get(i).pPID = -1;
+// 			}
+// 		}
+// 		childrenTable = null;
+// 
+// 		//release memory
+// 		unloadSections();
+// 		
+// 		if (PID == -1){
+// 			Lib.debug(dbgProcess, "ROOT terminited!");
+// 			Kernel.kernel.terminate();
+// 		}else {
+// 			KThread.currentThread().finish();
+// 		}
 		
 
 	}
@@ -789,14 +789,15 @@ public class UserProcess {
 		case syscallUnlink:
 			return handleUnlink(a0);
 
-		// case syscallExec:
-		// return handleExec(a0, a1, a2);
+		case syscallExec:
+		return handleExec(a0, a1, a2);
 		//
-		// case syscallJoin:
-		// return handleJoin(a0, a1);
-		//
-		// case syscallExit:
-		// return handleExit(a0);
+		case syscallJoin:
+		return handleJoin(a0, a1);
+		
+		case syscallExit:
+			handleExit(a0);
+		    return 0;
 
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);

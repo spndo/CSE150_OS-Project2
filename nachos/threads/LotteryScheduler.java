@@ -1,6 +1,7 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import nachos.threads.PriorityScheduler.PriorityQueue;
 import nachos.threads.PriorityScheduler.ThreadState;
 
 import java.util.TreeSet;
@@ -31,36 +32,26 @@ public class LotteryScheduler extends PriorityScheduler {
     /**
      * Allocate a new lottery scheduler.
      */
-    public LotteryScheduler() {
+    public LotteryScheduler() { 	
     }
     
-    /**
-     * Allocate a new lottery thread queue.
-     *
-     * @param	transferPriority	<tt>true</tt> if this queue should
-     *					transfer tickets from waiting threads
-     *					to the owning thread.
-     * @return	a new lottery thread queue.
-     */
-    public ThreadQueue newThreadQueue(boolean transferPriority) {
-		return new LotteryQueue(transferPriority); //lotteryQUEUE
+    public int getPriority(KThread thread) {
+	Lib.assertTrue(Machine.interrupt().disabled());	 
+	
+	return getThreadState(thread).getPriority();
     }
-    
-    protected ThreadState getThreadState(KThread thread) {
-	if (thread.schedulingState == null)
-	    thread.schedulingState = new ThreadState(thread);
 
-	return (ThreadState) thread.schedulingState;
+    public int getEffectivePriority(KThread thread) {
+	Lib.assertTrue(Machine.interrupt().disabled());   
+	
+	return getThreadState(thread).getEffectivePriority();
     }
-    
-	public void setPriority(KThread thread, int priority) { // change this
-		Lib.assertTrue(Machine.interrupt().disabled());
 
-		Lib.assertTrue(priority >= priorityMinimum
-				&& priority <= priorityMaximum);
-
-		getThreadState(thread).setPriority(priority);
-	}
+    public void setPriority(KThread thread, int priority) {
+	Lib.assertTrue(Machine.interrupt().disabled());
+	Lib.assertTrue(priority >= priorityMinimum && priority <= priorityMaximum);
+	getThreadState(thread).setPriority(priority);
+    }
 
     public boolean increasePriority() {
 	boolean intStatus = Machine.interrupt().disable();
@@ -68,15 +59,19 @@ public class LotteryScheduler extends PriorityScheduler {
 	KThread thread = KThread.currentThread();
 
 	int priority = getPriority(thread);
-	if (priority == priorityMaximum)
+	
+	if (priority == priorityMaximum){
+		
 	    return false;
-
+	}
+	
 	setPriority(thread, priority+1);
 
 	Machine.interrupt().restore(intStatus);
+	
 	return true;
     }
-    
+
     public boolean decreasePriority() {
 	boolean intStatus = Machine.interrupt().disable();
 		       
@@ -92,6 +87,30 @@ public class LotteryScheduler extends PriorityScheduler {
 	return true;
     }
     
+    protected ThreadState getThreadState(KThread thread) {
+	if (thread.schedulingState == null)
+	    thread.schedulingState = new ThreadState(thread);
+
+	return (ThreadState) thread.schedulingState;
+    }
+    
+    
+    /**
+     * Allocate a new lottery thread queue.
+     *
+     * @param	transferPriority	<tt>true</tt> if this queue should
+     *					transfer tickets from waiting threads
+     *					to the owning thread.
+     * @return	a new lottery thread queue.
+     */
+    
+    public ThreadQueue newThreadQueue(boolean transferPriority) {
+	return new PriorityQueue(transferPriority);
+    }
+    
+    
+    
+    
     protected class LotteryQueue extends PriorityQueue{
     	 LotteryQueue(boolean transferPriority){
              this.transferPriority = transferPriority;
@@ -102,4 +121,9 @@ public class LotteryScheduler extends PriorityScheduler {
          //need to implement ticket transfer system
     }
     
+	public static final int priorityDefault = 1;
+
+	public static final int priorityMinimum = 1;
+
+	public static final int priorityMaximum = Integer.MAX_VALUE;    
 }

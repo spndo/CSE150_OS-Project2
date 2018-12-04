@@ -4,6 +4,7 @@ import nachos.machine.*;
 import nachos.threads.PriorityScheduler.PriorityQueue;
 import nachos.threads.PriorityScheduler.ThreadState;
 
+import java.util.Random;
 import java.util.TreeSet;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -108,22 +109,63 @@ public class LotteryScheduler extends PriorityScheduler {
 	return new PriorityQueue(transferPriority);
     }
     
-    
-    
-    
-    protected class LotteryQueue extends PriorityQueue{
-    	 LotteryQueue(boolean transferPriority){
-             this.transferPriority = transferPriority;
-         }
-         LotteryQueue(){
-             this.transferPriority = false;
-         }
-         //need to implement ticket transfer system
+    protected class LotteryQueue extends LotteryScheduler.PriorityQueue{
+        LotteryQueue(boolean transferPriority){
+            super(transferPriority);
+        }
+    }  
+    protected ThreadState pickNextThread() {
+
+        int tickets = 0;
+		//getEffectivePriority will give you the total amount of tickets available
+		tickets = getEffectivePriority();
+		
+		
+		//if there are no tickets available it will return null
+		//past this if statement, fucntion should not return null;
+        if(tickets == 0){
+			return null;
+		}			
+		
+		//select random winner within range of available tickets
+        int winner = new Random().nextInt(tickets);
+
+        ThreadState state = null;
+
+        for(ThreadState threadstate : priorityQueue){
+            state = threadstate;
+			
+            if(winner <= threadstate.getPriority()){
+                return state;
+            }
+        }
+
+		//double check to make sure state is not null
+        Lib.assertTrue(state != null);
+        return state;
     }
+    protected class LotThreadState extends LotteryScheduler.ThreadState{
+        private LotThreadState(KThread thread) {
+            super(thread);
+        }
+    }   
+	public int getEffectivePriority() {
+
+		int effectivepriority = getPriority();
+		
+		for (PriorityQueue queue : Tickets){
+			for (ThreadState currentThread : queue.priorityQueue){
+				if (currentThread == this){
+					continue;
+				}
+				effectivepriority += currentThread.getEffectivePriority();
+			}
+		}
+		return effectivepriority;
+	}
+    
     
 	public static final int priorityDefault = 1;
-
 	public static final int priorityMinimum = 1;
-
 	public static final int priorityMaximum = Integer.MAX_VALUE;    
 }

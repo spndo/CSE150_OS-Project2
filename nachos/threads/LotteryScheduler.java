@@ -89,11 +89,11 @@ public class LotteryScheduler extends PriorityScheduler {
     }
     
     @Override
-    protected ThreadState getThreadState(KThread thread) {
+    protected LotThreadState getThreadState(KThread thread) {
 	if (thread.schedulingState == null)
-	    thread.schedulingState = new ThreadState(thread);
+	    thread.schedulingState = new LotThreadState(thread);
 
-	return (ThreadState) thread.schedulingState;
+	return (LotThreadState) thread.schedulingState;
     }
     
     
@@ -162,7 +162,7 @@ public class LotteryScheduler extends PriorityScheduler {
     		for (PriorityQueue q : donation){
     			for (KThread thread : q.waitQueue){
     				ep.add(this);
-    				effectivePriority += getThreadState(thread).getEffectivePriority();
+    				effectivePriority += getThreadState(thread).getEffectivePriority(ep);
     				ep.remove(this);
     			}
     		}
@@ -170,7 +170,7 @@ public class LotteryScheduler extends PriorityScheduler {
 			if (queue.transferPriority)
 				for (KThread thread : queue.waitQueue) {
 					ep.add(this);
-					effectivePriority += getThreadState(thread).getEffectivePriority();
+					effectivePriority += getThreadState(thread).getEffectivePriority(ep);
 					ep.remove(this);
 				}
 
@@ -182,6 +182,5 @@ public class LotteryScheduler extends PriorityScheduler {
     protected Random random = new Random(25);
 	public static final int priorityDefault = 1;
 	public static final int priorityMinimum = 1;
-	public static final int priorityMaximum = Integer.MAX_VALUE; 
-	
+	public static final int priorityMaximum = Integer.MAX_VALUE;    
 }

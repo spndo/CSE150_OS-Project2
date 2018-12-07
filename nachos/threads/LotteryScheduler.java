@@ -36,25 +36,28 @@ public class LotteryScheduler extends PriorityScheduler {
     public LotteryScheduler() { 	
     }
     
-    public int getPriority(KThread thread) {
+    @Override
+    public int getPriority(KThread thread) { // used from priority scheduler
 	Lib.assertTrue(Machine.interrupt().disabled());	 
 	
 	return getThreadState(thread).getPriority();
     }
-
-    public int getEffectivePriority(KThread thread) {
+    @Override
+    public int getEffectivePriority(KThread thread) { //used from priority scheduler
 	Lib.assertTrue(Machine.interrupt().disabled());   
 	
 	return getThreadState(thread).getEffectivePriority();
     }
 
-    public void setPriority(KThread thread, int priority) {
+    @Override
+    public void setPriority(KThread thread, int priority) { // used from priority scheduler
 	Lib.assertTrue(Machine.interrupt().disabled());
 	Lib.assertTrue(priority >= priorityMinimum && priority <= priorityMaximum);
 	getThreadState(thread).setPriority(priority);
     }
 
-    public boolean increasePriority() {
+    @Override
+    public boolean increasePriority() { // used from priority scheduler
 	boolean intStatus = Machine.interrupt().disable();
 		       
 	KThread thread = KThread.currentThread();
@@ -73,7 +76,8 @@ public class LotteryScheduler extends PriorityScheduler {
 	return true;
     }
 
-    public boolean decreasePriority() {
+    @Override
+    public boolean decreasePriority() { // used from priority scheduler
 	boolean intStatus = Machine.interrupt().disable();
 		       
 	KThread thread = KThread.currentThread();
@@ -87,8 +91,9 @@ public class LotteryScheduler extends PriorityScheduler {
 	Machine.interrupt().restore(intStatus);
 	return true;
     }
-    
-    protected ThreadState getThreadState(KThread thread) {
+
+    @Override
+    protected ThreadState getThreadState(KThread thread) { // used from priority scheduler
 	if (thread.schedulingState == null)
 	    thread.schedulingState = new ThreadState(thread);
 
@@ -105,7 +110,7 @@ public class LotteryScheduler extends PriorityScheduler {
      * @return	a new lottery thread queue.
      */
     
-    public ThreadQueue newThreadQueue(boolean transferPriority) {
+    public ThreadQueue newThreadQueue(boolean transferPriority) { // used from priority scheduler
 	return new PriorityQueue(transferPriority);
     }
     
@@ -114,6 +119,8 @@ public class LotteryScheduler extends PriorityScheduler {
             super(transferPriority);
         }
     }  
+
+    @Override
     protected ThreadState pickNextThread() {
 
         int tickets = 0;
@@ -150,7 +157,7 @@ public class LotteryScheduler extends PriorityScheduler {
         }
     }
 	
-    
+    @Override
     public int getEffectivePriority() {
         int tickets = getPriority();
 
@@ -169,5 +176,5 @@ public class LotteryScheduler extends PriorityScheduler {
     
 	public static final int priorityDefault = 1;
 	public static final int priorityMinimum = 1;
-	public static final int priorityMaximum = Integer.MAX_VALUE;    
+	public static final int priorityMaximum = Integer.MAX_VALUE; // initialize according to the task 4 requirements  
 }

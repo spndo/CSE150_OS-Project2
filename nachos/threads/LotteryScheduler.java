@@ -182,5 +182,6 @@ public class LotteryScheduler extends PriorityScheduler {
     protected Random random = new Random(25);
 	public static final int priorityDefault = 1;
 	public static final int priorityMinimum = 1;
-	public static final int priorityMaximum = Integer.MAX_VALUE;    
+	public static final int priorityMaximum = Integer.MAX_VALUE; 
+	
 }

@@ -148,21 +148,23 @@ public class LotteryScheduler extends PriorityScheduler {
         private LotThreadState(KThread thread) {
             super(thread);
         }
-    }   
-	public int getEffectivePriority() {
+    }
+	
+    
+    public int getEffectivePriority() {
+        int tickets = getPriority();
 
-		int effectivepriority = getPriority();
-		
-		for (PriorityQueue queue : Tickets){
-			for (ThreadState currentThread : queue.priorityQueue){
-				if (currentThread == this){
-					continue;
-				}
-				effectivepriority += currentThread.getEffectivePriority();
-			}
-		}
-		return effectivepriority;
-	}
+        for (PriorityQueue myQueue : capturedResources)  {
+            for( ThreadState currentThread : myQueue.priorityQueue) {
+                if (currentThread == this)
+                    continue;
+                tickets += currentThread.getEffectivePriority();
+            }
+        }
+        System.out.println("Tickets " + tickets );
+        return tickets;
+    }
+}
     
     
 	public static final int priorityDefault = 1;

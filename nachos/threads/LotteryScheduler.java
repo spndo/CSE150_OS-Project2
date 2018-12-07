@@ -35,25 +35,30 @@ public class LotteryScheduler extends PriorityScheduler {
      */
     public LotteryScheduler() { 	
     }
+    
     @Override
     public int getPriority(KThread thread) {
 	Lib.assertTrue(Machine.interrupt().disabled());	 
 	
 	return getThreadState(thread).getPriority();
     }
+    
     @Override
     public int getEffectivePriority(KThread thread) {
 	Lib.assertTrue(Machine.interrupt().disabled());   
 	
+	
 	return getThreadState(thread).getEffectivePriority();
     }
-
+    
+    @Override
     public void setPriority(KThread thread, int priority) {
 	Lib.assertTrue(Machine.interrupt().disabled());
 	Lib.assertTrue(priority >= priorityMinimum && priority <= priorityMaximum);
 	getThreadState(thread).setPriority(priority);
     }
-
+    
+    @Override
     public boolean increasePriority() {
 	boolean intStatus = Machine.interrupt().disable();
 		       
@@ -72,7 +77,8 @@ public class LotteryScheduler extends PriorityScheduler {
 	
 	return true;
     }
-
+    
+    @Override
     public boolean decreasePriority() {
 	boolean intStatus = Machine.interrupt().disable();
 		       
@@ -114,6 +120,7 @@ public class LotteryScheduler extends PriorityScheduler {
         LotteryQueue(boolean transferPriority){
             super(transferPriority);
         }
+        
         @Override
         protected LotThreadState pickNextThread() {
 

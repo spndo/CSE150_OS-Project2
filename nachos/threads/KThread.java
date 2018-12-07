@@ -479,6 +479,7 @@ public class KThread {
     private static KThread currentThread = null;
     private static KThread toBeDestroyed = null;
     private static KThread idleThread = null;
+    ThreadQueue waitToJoin = ThreadedKernel.scheduler.newThreadQueue(true);
     //for joining queue, make sure it is not empty 
     
 }

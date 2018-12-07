@@ -114,7 +114,7 @@ public class LotteryScheduler extends PriorityScheduler {
 	return new PriorityQueue(transferPriority);
     }
     
-    protected class LotteryQueue extends LotteryScheduler.PriorityQueue{
+    protected class LotteryQueue extends PriorityScheduler.PriorityQueue{
         LotteryQueue(boolean transferPriority){
             super(transferPriority);
         }
@@ -151,7 +151,7 @@ public class LotteryScheduler extends PriorityScheduler {
         Lib.assertTrue(state != null);
         return state;
     }
-    protected class LotThreadState extends LotteryScheduler.ThreadState{
+    protected class LotThreadState extends PriorityScheduler.ThreadState{
         private LotThreadState(KThread thread) {
             super(thread);
         }
@@ -159,6 +159,7 @@ public class LotteryScheduler extends PriorityScheduler {
 	
     @Override
     public int getEffectivePriority() {
+    	
         int tickets = getPriority();
 
         for (PriorityQueue myQueue : capturedResources)  {
@@ -168,7 +169,6 @@ public class LotteryScheduler extends PriorityScheduler {
                 tickets += currentThread.getEffectivePriority();
             }
         }
-        System.out.println("Tickets " + tickets );
         return tickets;
     }
 }

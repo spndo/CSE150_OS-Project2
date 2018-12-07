@@ -150,12 +150,12 @@ public class UserProcess {
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
         byte[] memory = Machine.processor().getMemory();
-        
+
         int transferred = 0;
         while (length > 0 && offset < data.length) {
         	int addrOffset = vaddr % 1024;
         	int virtualPage = vaddr / 1024;
-        	
+
         	if (virtualPage >= pageTable.length || virtualPage < 0) {
         		break;
         	}
@@ -164,10 +164,10 @@ public class UserProcess {
         		break;
         	}
         	pte.used = true;
-        	
+
         	int physPage = pte.ppn;
         	int physAddr = physPage * 1024 + addrOffset;
-        	
+
         	int transferLength = Math.min(data.length-offset, Math.min(length, 1024-addrOffset));
         	System.arraycopy(memory, physAddr, data, offset, transferLength);
         	vaddr += transferLength;
@@ -175,7 +175,7 @@ public class UserProcess {
         	length -= transferLength;
         	transferred += transferLength;
         }
-        
+
         return transferred;
 	}
 
@@ -213,39 +213,39 @@ public class UserProcess {
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
         byte[] memory = Machine.processor().getMemory(); //@param data
-        
+
         int transferred = 0;
         int bitVal = 1024;
-        
+
         while (length > 0 && offset < data.length) {
         	int addressOffset = vaddr % bitVal;
         	int virtualPageNum = vaddr / bitVal;
-        	
+
         	if (virtualPageNum < 0 || virtualPageNum >= pageTable.length) {
         		break;
         	} //check if virtual page number is valid before creating a translation entry
-        	
+
         	TranslationEntry pageTableEntry = pageTable[virtualPageNum];
-        	
+
         	if (pageTableEntry.readOnly || !pageTableEntry.valid) {
         		break;
         	}
         	pageTableEntry.dirty = true;
         	pageTableEntry.used = true;
-        	
+
         	int physPageNum = pageTableEntry.ppn;
         	int paddr = addressOffset + (physPageNum * bitVal); // + addressOffset; //paddr (physical address)
-        	
+
         	int transferLength = Math.min(data.length-offset, Math.min(length, bitVal - addressOffset));
-        	
+
         	System.arraycopy(data, offset, memory, paddr, transferLength);
-        	
+
         	vaddr += transferLength; //@param vaddr (virtual address)
         	offset += transferLength; //@param offset
         	length -= transferLength; //@param length
         	transferred += transferLength; //@return number of bytes successfully transferred
         }
-        
+
         //return the number of bytes transferred and will always return the val even if transferred = 0
         return transferred;
 	}
@@ -346,19 +346,27 @@ public class UserProcess {
 	 * @return <tt>true</tt> if the sections were successfully loaded.
 	 */
 	protected boolean loadSections() {
-		        if (numPages > Machine.processor().getNumPhysPages()) {
+		//Uses allocation function in userkernel to allocate the number of pages needed.
+		// Prepares pageTable to be loaded into physical memory pages before calling
+		//the section.load function.
+
+		// if insufficient memory, then return false
+		if (numPages > Machine.processor().getNumPhysPages()) {
             coff.close();
-            Lib.debug(dbgProcess, "\tinsufficient physical memory");
             return false;
         }
+		//initialize page table with number of pages
         pageTable = new TranslationEntry[numPages];
-        
-        for (int i=0; i<numPages; i++) {
-        	int physPage = UserKernel.addAvailablePage();
-        	if (physPage < 0) {
-        		//Lib.debug(dbgProcess, "\tunable to allocate pages; tried " + numPages + ", did " + i );
-        		for (int j=0; j<i; j++) {
+
+
+        //loop through allocating pages
+        for (int i = 0; i < numPages; i++) {
+        	int pPage = UserKernel.addAvailablePage();
+        	// if there are no more usable pages, it will be less than 0
+        	if (pPage < 0) {
+        		for (int j = 0; j < i; j++) {
         			if (pageTable[j].valid) {
+        				//makes all allocated pages usable again
         				UserKernel.removeAvailablePage(pageTable[j].ppn);
         				pageTable[j].valid = false;
         			}
@@ -366,28 +374,25 @@ public class UserProcess {
         		coff.close();
         		return false;
         	}
-        	pageTable[i] = new TranslationEntry(i, physPage, true, false, false, false);
+        	pageTable[i] = new TranslationEntry(i, pPage, true, false, false, false);
         }
-        
-        // load sections
-        for (int s=0; s<coff.getNumSections(); s++) {
-            CoffSection section = coff.getSection(s);
-            
-            Lib.debug(dbgProcess, "\tinitializing " + section.getName()
-                      + " section (" + section.getLength() + " pages)");
 
-            for (int i=0; i<section.getLength(); i++) {
-                int vpn = section.getFirstVPN()+i;
+        // load sections
+        for (int x = 0; x<coff.getNumSections(); x++) {
+            CoffSection section = coff.getSection(x);
+
+            for (int y = 0; y < section.getLength(); y++) {
+                int virtualpagenum = section.getFirstVPN() + y;
 
                 // for now, just assume virtual addresses=physical addresses
-                
-                section.loadPage(i, pageTable[vpn].ppn);
+
+                section.loadPage(y, pageTable[virtualpagenum].ppn);
                 if (section.isReadOnly()) {
-                	pageTable[vpn].readOnly = true;
+                	pageTable[virtualpagenum].readOnly = true;
                 }
             }
         }
-        
+
         coff.close();
         return true;
 	}
@@ -566,7 +571,7 @@ public class UserProcess {
 
 	private int handleExec(int file, int argc, int argv) {
 		String fileName = readVirtualMemoryString(file, 256);
-// 
+//
 		if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
 			String[] arg = new String[argc];
 			byte[] buffer = new byte[4];
@@ -580,12 +585,12 @@ public class UserProcess {
 					}
 			}
 			UserProcess child = new UserProcess();
-			
+
 			child.pPID = this.PID;
 			if (child.execute(fileName, arg)) {
 				childrenTable.put(child.PID, child);
 				return child.PID;
-				
+
 			}
 
 		}
@@ -593,7 +598,7 @@ public class UserProcess {
 // 		if (fileName != null && argc >= 0 && fileName.endsWith(".coff")) {
 // 			String[] arg = new String[argc];
 // 			byte[] buffer = new byte[4];
-// 
+//
 // 			for (int i = 0; i < argc; i++) {
 // 				if (readVirtualMemory(argv + i*4, buffer) == 4) {
 // 					arg[i] = readVirtualMemoryString(Lib.bytesToInt(buffer, 0), 256);
@@ -606,7 +611,7 @@ public class UserProcess {
 // 					}
 // 				}
 // 			}
-// 
+//
 // 		}
 // 		return -1;
 	}
@@ -668,32 +673,32 @@ public class UserProcess {
 			KThread.currentThread().finish();
 	}
 // 		Lib.debug(dbgProcess, "handleExit()");
-// 		
+//
 // 		for (int i = 0; i < fileTable.length; ++i) {
 // 			if (fileTable[i] != null) {
 // 				handleClose(i);
 // 			}
 // 		}
-// 		
+//
 // 		statesnow = status;
-// 		
+//
 // 		if (childrenTable != null && !childrenTable.isEmpty()){
 // 			for (Integer i : childrenTable.keySet()) {
 // 			childrenTable.get(i).pPID = -1;
 // 			}
 // 		}
 // 		childrenTable = null;
-// 
+//
 // 		//release memory
 // 		unloadSections();
-// 		
+//
 // 		if (PID == -1){
 // 			Lib.debug(dbgProcess, "ROOT terminited!");
 // 			Kernel.kernel.terminate();
 // 		}else {
 // 			KThread.currentThread().finish();
 // 		}
-		
+
 
 	}
 
@@ -753,7 +758,7 @@ public class UserProcess {
 	 * <td><tt>int  unlink(char *name);</tt></td>
 	 * </tr>
 	 * </table>
-	 * 
+	 *
 	 * @param syscall
 	 *            the syscall number.
 	 * @param a0
@@ -794,7 +799,7 @@ public class UserProcess {
 		//
 		case syscallJoin:
 		return handleJoin(a0, a1);
-		
+
 		case syscallExit:
 			handleExit(a0);
 		    return 0;

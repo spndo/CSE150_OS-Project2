@@ -295,14 +295,15 @@ public class PriorityScheduler extends Scheduler {
 					
 				}
 			}
-			PriorityQueue queue = (PriorityQueue) thread.waitToJoin;
-			if(queue.transferPriority) {
+			
+			PriorityQueue queue = (PriorityQueue) thread.waitToJoin; // the queue to hold transfer tickets
+			if(queue.transferPriority) { // if the queue has priority it will add more tickets
 				for(KThread k : queue.waitQueue) {
 					ep.add(this);
-					int p = getThreadState(k).getEffectivePriority(ep);
+					int p = getThreadState(k).getEffectivePriority(ep); // new int is set to the threadstates queue
 					ep.remove(this);
 					if(p > effectivePriority) {
-						effectivePriority = p;
+						effectivePriority = p; // if there are more tickets, set them to the set priority
 					}
 				}
 			}
